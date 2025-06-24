@@ -7,6 +7,7 @@
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
     <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
     <script src='https://unpkg.com/deck.gl@latest/dist.min.js'></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
@@ -46,7 +47,7 @@
     </style>
 </head>
 <body>
-    <div id='map'></div>
+    <div id='map' style="width: 100vw; height: 100vh;"></div>
     <div class="controls">
         <h3>Climate Data Heatmap</h3>
         <div>
@@ -74,6 +75,7 @@
         </div>
     </div>
 
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
     <script src='app.js'></script>
 </body>
 </html>
