@@ -13,11 +13,15 @@ const map = new mapboxgl.Map({
 map.addControl(new mapboxgl.NavigationControl());
 
 // Store our API endpoint
-const API_URL = 'CIA_CIruVm9aOP_2025-06-22-2025-06-24.csv';
+const API_URL = 'YOUR_REALTIME_API_ENDPOINT_HERE'; // <-- Replace with your real API endpoint
 
 // Variables to store our data and layers
 let climateData = [];
+let allData = [];
 let heatmapLayer = null;
+let currentTimeIndex = 0;
+let timer = null;
+let stationMarkers = [];
 
 // Color scales for different data types
 const colorScales = {
@@ -232,51 +236,87 @@ function getDataTypeLabel(dataType) {
     return labels[dataType];
 }
 
-// Event listeners for controls
-document.getElementById('data-type').addEventListener('change', updateHeatmap);
-document.getElementById('radius').addEventListener('input', updateHeatmap);
-document.getElementById('intensity').addEventListener('input', updateHeatmap);
+// Function to fetch real-time data from API
+async function fetchDataFromAPI() {
+    try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
+        // Expecting data as array of objects with lat, lng, date, temperature, humidity, wind_speed, precipitation
+        allData = data;
+        updateTimeSlider();
+        updateDataForCurrentTime();
+    } catch (error) {
+        console.error('Error fetching real-time data:', error);
+    }
+}
 
-// Load data when the map is ready
-map.on('load', () => {
-    loadData();
-    
-    // Add click event to show data at a point
-    map.on('click', (e) => {
-        const features = map.queryRenderedFeatures(e.point, {
-            layers: ['heatmap-layer']
-        });
-        
-        if (features.length) {
-            // Find the nearest data point (simplified for demo)
-            const clickedCoords = e.lngLat;
-            let closestPoint = null;
-            let minDistance = Infinity;
-            
-            climateData.forEach(point => {
-                const distance = Math.sqrt(
-                    Math.pow(point.lat - clickedCoords.lat, 2) + 
-                    Math.pow(point.lng - clickedCoords.lng, 2)
-                );
-                
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestPoint = point;
-                }
-            });
-            
-            if (closestPoint) {
-                const dataType = document.getElementById('data-type').value;
-                new mapboxgl.Popup()
-                    .setLngLat(clickedCoords)
-                    .setHTML(`
-                        <strong>Climate Data</strong><br>
-                        Latitude: ${closestPoint.lat.toFixed(4)}<br>
-                        Longitude: ${closestPoint.lng.toFixed(4)}<br>
-                        ${getDataTypeLabel(dataType)}: ${closestPoint[dataType]}
-                    `)
-                    .addTo(map);
-            }
-        }
+// Set up timer to reload data every 60 seconds
+function startRealtimeUpdates() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(fetchDataFromAPI, 60000); // 60 seconds
+}
+
+// Time slider setup
+function updateTimeSlider() {
+    const timeSlider = document.getElementById('time-slider');
+    if (!timeSlider) return;
+    // Get unique sorted times from allData
+    const times = Array.from(new Set(allData.map(d => d.date))).sort();
+    timeSlider.max = times.length - 1;
+    timeSlider.value = currentTimeIndex;
+    timeSlider.dataset.times = JSON.stringify(times);
+    document.getElementById('time-label').textContent = times[currentTimeIndex] || '';
+}
+
+function updateDataForCurrentTime() {
+    const timeSlider = document.getElementById('time-slider');
+    if (!timeSlider) return;
+    const times = JSON.parse(timeSlider.dataset.times || '[]');
+    const currentTime = times[currentTimeIndex];
+    climateData = allData.filter(d => d.date === currentTime);
+    updateHeatmap();
+    updateStationMarkers();
+    document.getElementById('time-label').textContent = currentTime || '';
+}
+
+// Add station markers with popups
+function updateStationMarkers() {
+    // Remove old markers
+    stationMarkers.forEach(m => m.remove());
+    stationMarkers = [];
+    climateData.forEach(point => {
+        const marker = new mapboxgl.Marker({ color: 'orange' })
+            .setLngLat([point.lng, point.lat])
+            .setPopup(new mapboxgl.Popup().setHTML(`
+                <strong>Station</strong><br>
+                Lat: ${point.lat}<br>
+                Lng: ${point.lng}<br>
+                Temp: ${point.temperature} °C<br>
+                Humidity: ${point.humidity} %<br>
+                Wind: ${point.wind_speed} km/h<br>
+                Precip: ${point.precipitation} mm
+                <br>Date: ${point.date}
+            `))
+            .addTo(map);
+        stationMarkers.push(marker);
     });
+}
+
+// Event listeners for controls
+if (document.getElementById('data-type'))
+    document.getElementById('data-type').addEventListener('change', updateHeatmap);
+if (document.getElementById('radius'))
+    document.getElementById('radius').addEventListener('input', updateHeatmap);
+if (document.getElementById('intensity'))
+    document.getElementById('intensity').addEventListener('input', updateHeatmap);
+if (document.getElementById('time-slider'))
+    document.getElementById('time-slider').addEventListener('input', function(e) {
+        currentTimeIndex = parseInt(e.target.value);
+        updateDataForCurrentTime();
+    });
+
+// On map load, fetch data and start timer
+map.on('load', () => {
+    fetchDataFromAPI();
+    startRealtimeUpdates();
 });
