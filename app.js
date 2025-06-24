@@ -52,35 +52,70 @@ const colorScales = {
 // Function to load data from API or CSV
 async function loadData() {
     try {
-        // If using an API
-        // const response = await fetch(API_URL);
-        // climateData = await response.json();
-        
-        // For demo purposes, we'll use a small sample dataset
-        // In a real app, you would fetch from your API or parse a CSV
-        climateData = [
-            { lat: 40.7128, lng: -74.0060, temperature: 22, humidity: 65, wind_speed: 15, precipitation: 0 },
-            { lat: 34.0522, lng: -118.2437, temperature: 28, humidity: 50, wind_speed: 10, precipitation: 0 },
-            { lat: 51.5074, lng: -0.1278, temperature: 18, humidity: 75, wind_speed: 20, precipitation: 5 },
-            { lat: 35.6762, lng: 139.6503, temperature: 25, humidity: 70, wind_speed: 12, precipitation: 2 },
-            { lat: -33.8688, lng: 151.2093, temperature: 20, humidity: 60, wind_speed: 25, precipitation: 0 },
-            // Add more data points as needed
-        ];
-        
-        // If you're loading from CSV, you could use Papa Parse or similar library
-        // Papa.parse(API_URL, {
-        //     download: true,
-        //     header: true,
-        //     complete: function(results) {
-        //         climateData = results.data;
-        //         updateHeatmap();
-        //     }
-        // });
-        
-        updateHeatmap();
+        // Parse the local CSV file in the folder
+        Papa.parse(API_URL, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                // Fetch the file as text to extract lat/lng from header
+                fetch(API_URL)
+                    .then(res => res.text())
+                    .then(text => {
+                        const latMatch = text.match(/latitude:\s*([\-\d.]+)/);
+                        const lngMatch = text.match(/longitude:\s*([\-\d.]+)/);
+                        const lat = latMatch ? parseFloat(latMatch[1]) : null;
+                        const lng = lngMatch ? parseFloat(lngMatch[1]) : null;
+
+                        climateData = results.data.map(row => ({
+                            lat: lat,
+                            lng: lng,
+                            temperature: parseFloat(row['temperature (°C)']),
+                            humidity: parseFloat(row['humidity (%)']),
+                            wind_speed: row['wind_speed'] ? parseFloat(row['wind_speed']) : 0,
+                            precipitation: row['rain (mm/hr)'] ? parseFloat(row['rain (mm/hr)']) : 0
+                        }));
+                        updateHeatmap();
+                    });
+            }
+        });
     } catch (error) {
         console.error('Error loading data:', error);
     }
+}
+
+// CSV Upload Handler
+if (document.getElementById('csv-upload')) {
+    document.getElementById('csv-upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                // Extract lat/lng from file header (first few lines)
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const text = event.target.result;
+                    const latMatch = text.match(/latitude:\s*([\-\d.]+)/);
+                    const lngMatch = text.match(/longitude:\s*([\-\d.]+)/);
+                    const lat = latMatch ? parseFloat(latMatch[1]) : null;
+                    const lng = lngMatch ? parseFloat(lngMatch[1]) : null;
+
+                    climateData = results.data.map(row => ({
+                        lat: lat,
+                        lng: lng,
+                        temperature: parseFloat(row['temperature (°C)']),
+                        humidity: parseFloat(row['humidity (%)']),
+                        wind_speed: row['wind_speed'] ? parseFloat(row['wind_speed']) : 0,
+                        precipitation: row['rain (mm/hr)'] ? parseFloat(row['rain (mm/hr)']) : 0
+                    }));
+                    updateHeatmap();
+                };
+                reader.readAsText(file);
+            }
+        });
+    });
 }
 
 // Function to update the heatmap based on selected parameters
