@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title>Climate Data Heatmap</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.9.1/mapbox-gl.css' rel='stylesheet' />
+    <script src='https://unpkg.com/deck.gl@latest/dist.min.js'></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .map-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+        }
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            z-index: 1;
+        }
+        .legend {
+            padding: 10px;
+            line-height: 18px;
+            color: #555;
+            background-color: white;
+            border-radius: 5px;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div id='map'></div>
+    <div class="controls">
+        <h3>Climate Data Heatmap</h3>
+        <div>
+            <label for="data-type">Data Type:</label>
+            <select id="data-type">
+                <option value="temperature">Temperature (°C)</option>
+                <option value="humidity">Humidity (%)</option>
+                <option value="wind_speed">Wind Speed (km/h)</option>
+                <option value="precipitation">Precipitation (mm)</option>
+            </select>
+        </div>
+        <div>
+            <label for="radius">Heatmap Radius:</label>
+            <input type="range" id="radius" min="5" max="50" value="20">
+        </div>
+        <div>
+            <label for="intensity">Intensity:</label>
+            <input type="range" id="intensity" min="1" max="10" value="5">
+        </div>
+    </div>
+    <div class="map-overlay">
+        <div id="legend" class="legend">
+            <h4>Legend</h4>
+            <div id="legend-content"></div>
+        </div>
+    </div>
+
+    <script src='app.js'></script>
+</body>
+</html>
