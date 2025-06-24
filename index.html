@@ -68,6 +68,10 @@
             <label for="intensity">Intensity:</label>
             <input type="range" id="intensity" min="1" max="10" value="5">
         </div>
+        <div>
+            <label for="csv-upload">Upload CSV:</label>
+            <input type="file" id="csv-upload" accept=".csv" />
+        </div>
     </div>
     <div class="map-overlay">
         <div id="legend" class="legend">
@@ -78,5 +82,40 @@
 
     <script src='https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js'></script>
     <script src='app.js'></script>
+
+    <script>
+        // CSV Upload Handler
+        document.getElementById('csv-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    // Extract lat/lng from file header (first few lines)
+                    fetch(file.name)
+                        .then(res => res.text())
+                        .then(text => {
+                            const latMatch = text.match(/latitude:\s*([-\d.]+)/);
+                            const lngMatch = text.match(/longitude:\s*([-\d.]+)/);
+                            const lat = latMatch ? parseFloat(latMatch[1]) : null;
+                            const lng = lngMatch ? parseFloat(lngMatch[1]) : null;
+
+                            // Map CSV rows to climateData
+                            climateData = results.data.map(row => ({
+                                lat: lat,
+                                lng: lng,
+                                temperature: parseFloat(row['temperature (°C)']),
+                                humidity: parseFloat(row['humidity (%)']),
+                                wind_speed: row['wind_speed'] ? parseFloat(row['wind_speed']) : 0,
+                                precipitation: row['rain (mm/hr)'] ? parseFloat(row['rain (mm/hr)']) : 0
+                            }));
+
+                            updateHeatmap();
+                        });
+                }
+            });
+        });
+    </script>
 </body>
 </html>
