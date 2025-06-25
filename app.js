@@ -6,7 +6,7 @@ const map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/mapbox/dark-v10',
     center: [13, 20], // Default center
-    zoom: 4
+    zoom: 3
 });
 
 // Add navigation controls
