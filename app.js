@@ -23,7 +23,7 @@ let currentTimeIndex = 0;
 let timer = null;
 let stationMarkers = [];
 
-// Expanded markers across Africa
+// Add more test markers in Africa
 const testMarkers = [
   { name: "LASEPA-008", location: "6.462088,3.550920", temperature: 28, wind_speed: 10, pm25: 35, state: "inactive" },
   { name: "LASEPA-001", location: "6.462155,3.550898", temperature: 32, wind_speed: 8, pm25: 50, state: "inactive" },
@@ -44,8 +44,23 @@ const testMarkers = [
   { name: "Luanda-001", location: "-8.8390,13.2894", temperature: 29, wind_speed: 8, pm25: 50, state: "active" },
   { name: "Kinshasa-001", location: "-4.4419,15.2663", temperature: 30, wind_speed: 10, pm25: 55, state: "inactive" },
   { name: "Abuja-001", location: "9.0579,7.4951", temperature: 35, wind_speed: 17, pm25: 75, state: "active" },
-  { name: "Marrakesh-001", location: "31.6295,-7.9811", temperature: 38, wind_speed: 15, pm25: 95, state: "inactive" }
+  { name: "Marrakesh-001", location: "31.6295,-7.9811", temperature: 38, wind_speed: 15, pm25: 95, state: "inactive" },
+  // Additional markers
+  { name: "Bamako-001", location: "12.6392,-8.0029", temperature: 37, wind_speed: 13, pm25: 80, state: "active" },
+  { name: "Libreville-001", location: "0.4162,9.4673", temperature: 28, wind_speed: 9, pm25: 40, state: "inactive" },
+  { name: "Maputo-001", location: "-25.9692,32.5732", temperature: 24, wind_speed: 12, pm25: 35, state: "active" },
+  { name: "Harare-001", location: "-17.8252,31.0335", temperature: 23, wind_speed: 10, pm25: 30, state: "inactive" },
+  { name: "Gaborone-001", location: "-24.6282,25.9231", temperature: 27, wind_speed: 11, pm25: 38, state: "active" },
+  { name: "Port Harcourt-001", location: "4.8156,7.0498", temperature: 33, wind_speed: 14, pm25: 70, state: "inactive" },
+  { name: "Ouagadougou-001", location: "12.3714,-1.5197", temperature: 36, wind_speed: 15, pm25: 85, state: "active" },
+  { name: "Lusaka-001", location: "-15.3875,28.3228", temperature: 25, wind_speed: 10, pm25: 32, state: "inactive" },
+  { name: "Kigali-001", location: "-1.9706,30.1044", temperature: 22, wind_speed: 8, pm25: 28, state: "active" },
+  { name: "Yaounde-001", location: "3.8480,11.5021", temperature: 29, wind_speed: 12, pm25: 45, state: "inactive" }
 ];
+
+// Track marker objects for toggling
+let testMarkerObjects = [];
+let markersVisible = true;
 
 // Color scales for each variable
 const colorScales = {
@@ -334,14 +349,6 @@ if (document.getElementById('time-slider'))
         updateDataForCurrentTime();
     });
 
-// On map load, fetch data and start timer
-map.on('load', () => {
-    fetchDataFromAPI();
-    startRealtimeUpdates();
-    addTestMarkers();
-    updateTestHeatmap("temperature");
-});
-
 function getTempColor(temp) {
   if (temp < 30) return "green";
   if (temp < 35) return "yellow";
@@ -350,6 +357,9 @@ function getTempColor(temp) {
 }
 
 function addTestMarkers() {
+  // Remove any existing markers first
+  testMarkerObjects.forEach(m => m.remove());
+  testMarkerObjects = [];
   testMarkers.forEach(marker => {
     const [lat, lng] = marker.location.split(',').map(Number);
     const color = getTempColor(marker.temperature);
@@ -362,12 +372,42 @@ function addTestMarkers() {
         State: ${marker.state}
       </div>
     `;
-    new mapboxgl.Marker()
+    const m = new mapboxgl.Marker()
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
       .addTo(map);
+    testMarkerObjects.push(m);
   });
 }
+
+function removeTestMarkers() {
+  testMarkerObjects.forEach(m => m.remove());
+  testMarkerObjects = [];
+}
+
+function toggleTestMarkers() {
+  if (markersVisible) {
+    removeTestMarkers();
+    document.getElementById('toggle-markers-btn').textContent = 'Show Markers';
+  } else {
+    addTestMarkers();
+    document.getElementById('toggle-markers-btn').textContent = 'Hide Markers';
+  }
+  markersVisible = !markersVisible;
+}
+
+// Attach toggle to button
+if (document.getElementById('toggle-markers-btn')) {
+  document.getElementById('toggle-markers-btn').addEventListener('click', toggleTestMarkers);
+}
+
+// On map load, fetch data and start timer
+map.on('load', () => {
+    fetchDataFromAPI();
+    startRealtimeUpdates();
+    addTestMarkers();
+    updateTestHeatmap("temperature");
+});
 
 // Add this function to convert testMarkers to GeoJSON
 function getTestMarkersGeoJSON(selectedVar = "temperature") {
