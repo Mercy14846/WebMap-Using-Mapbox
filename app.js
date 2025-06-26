@@ -453,3 +453,7 @@ function updateTestHeatmap(selectedVar = "temperature") {
     }
   });
 }
+
+document.getElementById('heatmap-var').addEventListener('change', function(e) {
+  updateTestHeatmap(e.target.value);
+});
