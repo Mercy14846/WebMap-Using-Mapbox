@@ -320,3 +320,39 @@ map.on('load', () => {
     fetchDataFromAPI();
     startRealtimeUpdates();
 });
+
+const testMarkers = [
+  {
+    name: "LASEPA-008",
+    location: "6.462088,3.550920",
+    temperature: 28,
+    wind_speed: 10,
+    pm25: 35,
+    state: "inactive"
+  },
+  {
+    name: "LASEPA-001",
+    location: "6.462155,3.550898",
+    temperature: 32,
+    wind_speed: 8,
+    pm25: 50,
+    state: "inactive"
+  },
+  {
+    name: "LASEPA-010",
+    location: "6.474743,3.611033",
+    temperature: 36,
+    wind_speed: 12,
+    pm25: 80,
+    state: "inactive"
+  },
+  {
+    name: "LASEPA-007",
+    location: "6.612907,3.360933",
+    temperature: 41,
+    wind_speed: 15,
+    pm25: 120,
+    state: "active"
+  },
+  // ...add more as needed
+];
