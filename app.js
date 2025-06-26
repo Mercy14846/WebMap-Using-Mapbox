@@ -5,8 +5,8 @@ mapboxgl.accessToken = 'pk.eyJ1IjoibWVyY3ljaWEiLCJhIjoiY202cW03eTA0MW13NDJtczRnO
 const map = new mapboxgl.Map({
     container: 'map',
     style: 'mapbox://styles/mapbox/dark-v10',
-    center: [13, 5.0472], // Default center
-    zoom: 3
+    center: [20, 2], // Centered on Africa
+    zoom: 3.2
 });
 
 // Add navigation controls
@@ -23,34 +23,53 @@ let currentTimeIndex = 0;
 let timer = null;
 let stationMarkers = [];
 
-// Color scales for different data types
+// Expanded markers across Africa
+const testMarkers = [
+  { name: "LASEPA-008", location: "6.462088,3.550920", temperature: 28, wind_speed: 10, pm25: 35, state: "inactive" },
+  { name: "LASEPA-001", location: "6.462155,3.550898", temperature: 32, wind_speed: 8, pm25: 50, state: "inactive" },
+  { name: "LASEPA-010", location: "6.474743,3.611033", temperature: 36, wind_speed: 12, pm25: 80, state: "inactive" },
+  { name: "LASEPA-007", location: "6.612907,3.360933", temperature: 41, wind_speed: 15, pm25: 120, state: "active" },
+  { name: "Nairobi-001", location: "-1.2921,36.8219", temperature: 25, wind_speed: 18, pm25: 60, state: "active" },
+  { name: "Cairo-001", location: "30.0444,31.2357", temperature: 39, wind_speed: 22, pm25: 90, state: "active" },
+  { name: "Johannesburg-001", location: "-26.2041,28.0473", temperature: 22, wind_speed: 20, pm25: 40, state: "inactive" },
+  { name: "Dakar-001", location: "14.7167,-17.4677", temperature: 31, wind_speed: 14, pm25: 55, state: "active" },
+  { name: "Accra-001", location: "5.6037,-0.1870", temperature: 29, wind_speed: 11, pm25: 45, state: "inactive" },
+  { name: "Addis-001", location: "9.03,38.74", temperature: 20, wind_speed: 10, pm25: 30, state: "active" },
+  { name: "Algiers-001", location: "36.7538,3.0588", temperature: 34, wind_speed: 16, pm25: 70, state: "inactive" },
+  { name: "Casablanca-001", location: "33.5731,-7.5898", temperature: 27, wind_speed: 13, pm25: 38, state: "active" },
+  { name: "Kampala-001", location: "0.3476,32.5825", temperature: 26, wind_speed: 9, pm25: 42, state: "inactive" },
+  { name: "Tripoli-001", location: "32.8872,13.1913", temperature: 37, wind_speed: 19, pm25: 85, state: "active" },
+  { name: "Khartoum-001", location: "15.5007,32.5599", temperature: 40, wind_speed: 21, pm25: 110, state: "active" },
+  { name: "Tunis-001", location: "36.8065,10.1815", temperature: 33, wind_speed: 12, pm25: 60, state: "inactive" },
+  { name: "Luanda-001", location: "-8.8390,13.2894", temperature: 29, wind_speed: 8, pm25: 50, state: "active" },
+  { name: "Kinshasa-001", location: "-4.4419,15.2663", temperature: 30, wind_speed: 10, pm25: 55, state: "inactive" },
+  { name: "Abuja-001", location: "9.0579,7.4951", temperature: 35, wind_speed: 17, pm25: 75, state: "active" },
+  { name: "Marrakesh-001", location: "31.6295,-7.9811", temperature: 38, wind_speed: 15, pm25: 95, state: "inactive" }
+];
+
+// Color scales for each variable
 const colorScales = {
-    temperature: [
-        [0, 'blue'],
-        [0.2, 'cyan'],
-        [0.4, 'lime'],
-        [0.6, 'yellow'],
-        [0.8, 'orange'],
-        [1, 'red']
-    ],
-    humidity: [
-        [0, 'white'],
-        [0.3, 'lightblue'],
-        [0.6, 'blue'],
-        [1, 'darkblue']
-    ],
-    wind_speed: [
-        [0, 'green'],
-        [0.3, 'yellow'],
-        [0.6, 'orange'],
-        [1, 'red']
-    ],
-    precipitation: [
-        [0, 'white'],
-        [0.3, 'lightblue'],
-        [0.6, 'blue'],
-        [1, 'darkblue']
-    ]
+  temperature: [
+    0, 'blue',
+    0.25, 'cyan',
+    0.5, 'lime',
+    0.75, 'yellow',
+    1, 'red'
+  ],
+  wind_speed: [
+    0, 'white',
+    0.25, 'lightblue',
+    0.5, 'blue',
+    0.75, 'purple',
+    1, 'black'
+  ],
+  pm25: [
+    0, 'green',
+    0.25, 'yellow',
+    0.5, 'orange',
+    0.75, 'red',
+    1, 'maroon'
+  ]
 };
 
 // Function to load data from API or CSV
@@ -323,42 +342,6 @@ map.on('load', () => {
     updateTestHeatmap("temperature");
 });
 
-const testMarkers = [
-  {
-    name: "LASEPA-008",
-    location: "6.462088,3.550920",
-    temperature: 28,
-    wind_speed: 10,
-    pm25: 35,
-    state: "inactive"
-  },
-  {
-    name: "LASEPA-001",
-    location: "6.462155,3.550898",
-    temperature: 32,
-    wind_speed: 8,
-    pm25: 50,
-    state: "inactive"
-  },
-  {
-    name: "LASEPA-010",
-    location: "6.474743,3.611033",
-    temperature: 36,
-    wind_speed: 12,
-    pm25: 80,
-    state: "inactive"
-  },
-  {
-    name: "LASEPA-007",
-    location: "6.612907,3.360933",
-    temperature: 41,
-    wind_speed: 15,
-    pm25: 120,
-    state: "active"
-  },
-  // ...add more as needed
-];
-
 function getTempColor(temp) {
   if (temp < 30) return "green";
   if (temp < 35) return "yellow";
@@ -435,11 +418,7 @@ function updateTestHeatmap(selectedVar = "temperature") {
         'interpolate',
         ['linear'],
         ['heatmap-density'],
-        0, 'blue',
-        0.25, 'cyan',
-        0.5, 'lime',
-        0.75, 'yellow',
-        1, 'red'
+        ...colorScales[selectedVar]
       ],
       'heatmap-radius': 30,
       'heatmap-opacity': 0.7,
@@ -452,6 +431,33 @@ function updateTestHeatmap(selectedVar = "temperature") {
       ]
     }
   });
+  updateLegend(selectedVar, min, max);
+}
+
+// Update the legend dynamically
+function updateLegend(selectedVar, min, max) {
+  const legendContent = document.getElementById('legend-content');
+  if (!legendContent) return;
+  const units = {
+    temperature: '°C',
+    wind_speed: 'km/h',
+    pm25: 'µg/m³'
+  };
+  const labels = {
+    temperature: 'Temperature',
+    wind_speed: 'Wind Speed',
+    pm25: 'PM2.5'
+  };
+  const colors = colorScales[selectedVar].filter((_, i) => i % 2 === 1);
+  const gradient = `linear-gradient(to right, ${colors.join(', ')})`;
+  legendContent.innerHTML = `
+    <div><strong>${labels[selectedVar]} (${units[selectedVar]})</strong></div>
+    <div style="background: ${gradient}; height: 20px; width: 100%; margin-top: 5px; border-radius: 4px;"></div>
+    <div style="display: flex; justify-content: space-between;">
+      <span>${min}</span>
+      <span>${max}</span>
+    </div>
+  `;
 }
 
 document.getElementById('heatmap-var').addEventListener('change', function(e) {
