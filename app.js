@@ -320,6 +320,7 @@ map.on('load', () => {
     fetchDataFromAPI();
     startRealtimeUpdates();
     addTestMarkers();
+    updateTestHeatmap("temperature");
 });
 
 const testMarkers = [
@@ -382,5 +383,73 @@ function addTestMarkers() {
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
       .addTo(map);
+  });
+}
+
+// Add this function to convert testMarkers to GeoJSON
+function getTestMarkersGeoJSON(selectedVar = "temperature") {
+  return {
+    type: "FeatureCollection",
+    features: testMarkers.map(marker => {
+      const [lat, lng] = marker.location.split(',').map(Number);
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [lng, lat]
+        },
+        properties: {
+          value: marker[selectedVar]
+        }
+      };
+    })
+  };
+}
+
+// Update this function to use testMarkers for the heatmap
+function updateTestHeatmap(selectedVar = "temperature") {
+  // Remove existing heatmap layer if it exists
+  if (map.getLayer('heatmap-layer')) {
+    map.removeLayer('heatmap-layer');
+    map.removeSource('heatmap-source');
+  }
+
+  // Normalize values
+  const values = testMarkers.map(m => m[selectedVar]);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
+  // Add the heatmap source and layer
+  map.addSource('heatmap-source', {
+    type: 'geojson',
+    data: getTestMarkersGeoJSON(selectedVar)
+  });
+
+  map.addLayer({
+    id: 'heatmap-layer',
+    type: 'heatmap',
+    source: 'heatmap-source',
+    paint: {
+      'heatmap-intensity': 1,
+      'heatmap-color': [
+        'interpolate',
+        ['linear'],
+        ['heatmap-density'],
+        0, 'blue',
+        0.25, 'cyan',
+        0.5, 'lime',
+        0.75, 'yellow',
+        1, 'red'
+      ],
+      'heatmap-radius': 30,
+      'heatmap-opacity': 0.7,
+      'heatmap-weight': [
+        'interpolate',
+        ['linear'],
+        ['get', 'value'],
+        min, 0,
+        max, 1
+      ]
+    }
   });
 }
