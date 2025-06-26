@@ -45,7 +45,6 @@ const testMarkers = [
   { name: "Kinshasa-001", location: "-4.4419,15.2663", temperature: 30, wind_speed: 10, pm25: 55, state: "inactive" },
   { name: "Abuja-001", location: "9.0579,7.4951", temperature: 35, wind_speed: 17, pm25: 75, state: "active" },
   { name: "Marrakesh-001", location: "31.6295,-7.9811", temperature: 38, wind_speed: 15, pm25: 95, state: "inactive" },
-  // Additional markers
   { name: "Bamako-001", location: "12.6392,-8.0029", temperature: 37, wind_speed: 13, pm25: 80, state: "active" },
   { name: "Libreville-001", location: "0.4162,9.4673", temperature: 28, wind_speed: 9, pm25: 40, state: "inactive" },
   { name: "Maputo-001", location: "-25.9692,32.5732", temperature: 24, wind_speed: 12, pm25: 35, state: "active" },
