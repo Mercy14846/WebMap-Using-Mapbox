@@ -319,6 +319,7 @@ if (document.getElementById('time-slider'))
 map.on('load', () => {
     fetchDataFromAPI();
     startRealtimeUpdates();
+    addTestMarkers();
 });
 
 const testMarkers = [
@@ -356,3 +357,30 @@ const testMarkers = [
   },
   // ...add more as needed
 ];
+
+function getTempColor(temp) {
+  if (temp < 30) return "green";
+  if (temp < 35) return "yellow";
+  if (temp < 40) return "orange";
+  return "red";
+}
+
+function addTestMarkers() {
+  testMarkers.forEach(marker => {
+    const [lat, lng] = marker.location.split(',').map(Number);
+    const color = getTempColor(marker.temperature);
+    const popupHtml = `
+      <div style="background:${color};padding:8px;border-radius:6px;color:#222;">
+        <strong>${marker.name}</strong><br>
+        Temp: ${marker.temperature} °C<br>
+        Wind: ${marker.wind_speed} km/h<br>
+        PM2.5: ${marker.pm25} µg/m³<br>
+        State: ${marker.state}
+      </div>
+    `;
+    new mapboxgl.Marker()
+      .setLngLat([lng, lat])
+      .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
+      .addTo(map);
+  });
+}
