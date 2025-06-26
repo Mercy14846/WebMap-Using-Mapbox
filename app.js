@@ -384,21 +384,38 @@ function removeTestMarkers() {
   testMarkerObjects = [];
 }
 
-function toggleTestMarkers() {
-  if (markersVisible) {
-    removeTestMarkers();
-    document.getElementById('toggle-markers-btn').textContent = 'Show Markers';
-  } else {
-    addTestMarkers();
-    document.getElementById('toggle-markers-btn').textContent = 'Hide Markers';
-  }
-  markersVisible = !markersVisible;
+// Attach toggle to checkbox
+const markerCheckbox = document.getElementById('toggle-markers-checkbox');
+if (markerCheckbox) {
+  markerCheckbox.addEventListener('change', function() {
+    if (markerCheckbox.checked) {
+      addTestMarkers();
+    } else {
+      removeTestMarkers();
+    }
+  });
 }
 
-// Attach toggle to button
-if (document.getElementById('toggle-markers-btn')) {
-  document.getElementById('toggle-markers-btn').addEventListener('click', toggleTestMarkers);
+// --- Time slider animation framework ---
+// If you have time-based data, filter testMarkers by time here.
+// For now, this is a placeholder for future time-based animation.
+const timeSlider = document.getElementById('time-slider');
+if (timeSlider) {
+  timeSlider.addEventListener('input', function(e) {
+    // Example: update heatmap and markers for selected time
+    // const selectedTime = e.target.value;
+    // filter testMarkers by selectedTime and update
+    // For now, just update the label
+    document.getElementById('time-label').textContent = e.target.value;
+    // updateTestHeatmap(...); // if you have time-based data
+    // addTestMarkers(...); // if you have time-based data
+  });
 }
+// --- End time slider framework ---
+
+// --- Placeholder for future overlays (e.g., wind field, etc.) ---
+// You can add overlay logic here and connect to new checkboxes in the controls.
+// --- End overlay placeholder ---
 
 // On map load, fetch data and start timer
 map.on('load', () => {
