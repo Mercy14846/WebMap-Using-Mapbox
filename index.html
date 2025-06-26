@@ -10,81 +10,100 @@
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background: #222; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         .map-overlay {
             position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            font-family: Arial, sans-serif;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 18px 22px 18px 22px;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            backdrop-filter: blur(4px);
+            min-width: 260px;
         }
         .controls {
             position: absolute;
-            top: 20px;
-            left: 20px;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border-radius: 5px;
-            font-family: Arial, sans-serif;
+            top: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 18px 22px 18px 22px;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
             z-index: 1;
+            min-width: 260px;
+            backdrop-filter: blur(4px);
+        }
+        .controls h2 {
+            margin: 0 0 12px 0;
+            font-size: 1.3em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .controls label {
+            font-size: 1em;
+            margin-right: 8px;
+        }
+        .controls select, .controls input[type="file"] {
+            font-size: 1em;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #bbb;
+            margin-bottom: 10px;
         }
         .legend {
-            padding: 10px;
-            line-height: 18px;
-            color: #555;
-            background-color: white;
-            border-radius: 5px;
+            padding: 0;
+            color: #222;
+            background: none;
+            border-radius: 8px;
+            border: 1.5px solid #e0e0e0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
-        .legend i {
-            width: 18px;
-            height: 18px;
-            float: left;
-            margin-right: 8px;
-            opacity: 0.7;
+        .legend h4 {
+            margin: 0 0 8px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        #legend-content {
+            margin-top: 6px;
+        }
+        .legend-gradient-bar {
+            height: 28px;
+            width: 100%;
+            border-radius: 6px;
+            margin: 8px 0 6px 0;
+            border: 1px solid #ccc;
+        }
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.98em;
+            margin-top: 2px;
+        }
+        .controls .row {
+            margin-bottom: 12px;
         }
     </style>
 </head>
 <body>
     <div id='map' style="width: 100vw; height: 100vh;"></div>
     <div class="controls">
-        <h3>Data Heatmap</h3>
-        <div>
-            <label for="data-type">Data Type:</label>
-            <select id="data-type">
+        <h2>Climate Heatmap Africa</h2>
+        <div class="row">
+            <label for="heatmap-var"><strong>Variable:</strong></label>
+            <select id="heatmap-var">
                 <option value="temperature">Temperature (°C)</option>
-                <option value="humidity">Humidity (%)</option>
                 <option value="wind_speed">Wind Speed (km/h)</option>
-                <option value="precipitation">Precipitation (mm)</option>
+                <option value="pm25">PM2.5 (µg/m³)</option>
             </select>
         </div>
-        <div>
+        <div class="row">
             <label for="csv-upload">Upload CSV:</label>
             <input type="file" id="csv-upload" accept=".csv" />
         </div>
-        <div>
-            <label for="radius">Heatmap Radius:</label>
-            <input type="range" id="radius" min="5" max="50" value="20">
-        </div>
-        <div>
-            <label for="intensity">Intensity:</label>
-            <input type="range" id="intensity" min="1" max="10" value="5">
-        </div>
-        <div>
-            <label for="time-slider">Time:</label>
-            <input type="range" id="time-slider" min="0" max="0" value="0">
-            <span id="time-label"></span>
-        </div>
-        <div>
-            <label for="heatmap-var">Heatmap Variable:</label>
-            <select id="heatmap-var">
-                <option value="temperature">Temperature</option>
-                <option value="wind_speed">Wind Speed</option>
-                <option value="pm25">PM2.5</option>
-            </select>
-        </div>
+        <!-- Optionally, you can add radius/intensity/time controls here if you want -->
     </div>
     <div class="map-overlay">
         <div id="legend" class="legend">
