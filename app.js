@@ -519,3 +519,132 @@ function updateLegend(selectedVar, min, max) {
 document.getElementById('heatmap-var').addEventListener('change', function(e) {
   updateTestHeatmap(e.target.value);
 });
+
+// --- Wind Field Overlay ---
+let windArrowLayerId = 'wind-arrows';
+function addWindField() {
+  // Create GeoJSON for wind arrows
+  const features = testMarkers.map(marker => {
+    const [lat, lng] = marker.location.split(',').map(Number);
+    // Use a random direction for demo (in degrees)
+    const direction = marker.wind_dir !== undefined ? marker.wind_dir : Math.random() * 360;
+    const length = 0.5 + marker.wind_speed / 20; // scale arrow length
+    // Calculate arrow endpoint
+    const rad = direction * Math.PI / 180;
+    const dx = Math.cos(rad) * length / 100;
+    const dy = Math.sin(rad) * length / 100;
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [lng, lat],
+          [lng + dx, lat + dy]
+        ]
+      },
+      properties: {
+        wind_speed: marker.wind_speed,
+        direction: direction
+      }
+    };
+  });
+  if (map.getSource('wind-arrows')) map.removeLayer(windArrowLayerId), map.removeSource('wind-arrows');
+  map.addSource('wind-arrows', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features }
+  });
+  map.addLayer({
+    id: windArrowLayerId,
+    type: 'line',
+    source: 'wind-arrows',
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round'
+    },
+    paint: {
+      'line-color': '#00bfff',
+      'line-width': 3
+    }
+  });
+}
+function removeWindField() {
+  if (map.getLayer(windArrowLayerId)) map.removeLayer(windArrowLayerId);
+  if (map.getSource('wind-arrows')) map.removeSource('wind-arrows');
+}
+
+// --- Temperature Isolines Overlay (demo: connect similar temp markers) ---
+let isolinesLayerId = 'temp-isolines';
+function addTemperatureIsolines() {
+  // Group markers by rounded temperature (e.g., every 5°C)
+  const groups = {};
+  testMarkers.forEach(marker => {
+    const group = Math.round(marker.temperature / 5) * 5;
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(marker);
+  });
+  // For each group, create a LineString connecting the points
+  const features = Object.values(groups).map(markers => {
+    if (markers.length < 2) return null;
+    return {
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: markers.map(m => {
+          const [lat, lng] = m.location.split(',').map(Number);
+          return [lng, lat];
+        })
+      },
+      properties: {}
+    };
+  }).filter(Boolean);
+  if (map.getSource('temp-isolines')) map.removeLayer(isolinesLayerId), map.removeSource('temp-isolines');
+  map.addSource('temp-isolines', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features }
+  });
+  map.addLayer({
+    id: isolinesLayerId,
+    type: 'line',
+    source: 'temp-isolines',
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round'
+    },
+    paint: {
+      'line-color': '#ff8800',
+      'line-width': 2,
+      'line-dasharray': [2,2]
+    }
+  });
+}
+function removeTemperatureIsolines() {
+  if (map.getLayer(isolinesLayerId)) map.removeLayer(isolinesLayerId);
+  if (map.getSource('temp-isolines')) map.removeSource('temp-isolines');
+}
+
+// --- Overlay checkbox handlers ---
+const windCheckbox = document.getElementById('toggle-wind-checkbox');
+if (windCheckbox) {
+  windCheckbox.addEventListener('change', function() {
+    if (windCheckbox.checked) {
+      addWindField();
+    } else {
+      removeWindField();
+    }
+  });
+}
+const isolinesCheckbox = document.getElementById('toggle-isolines-checkbox');
+if (isolinesCheckbox) {
+  isolinesCheckbox.addEventListener('change', function() {
+    if (isolinesCheckbox.checked) {
+      addTemperatureIsolines();
+    } else {
+      removeTemperatureIsolines();
+    }
+  });
+}
+// On map load, also check if overlays should be shown
+map.on('load', () => {
+  if (windCheckbox && windCheckbox.checked) addWindField();
+  if (isolinesCheckbox && isolinesCheckbox.checked) addTemperatureIsolines();
+});
