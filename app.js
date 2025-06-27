@@ -13,15 +13,16 @@ const map = new mapboxgl.Map({
 map.addControl(new mapboxgl.NavigationControl());
 
 // Store our API endpoint
-const API_URL = 'YOUR_REALTIME_API_ENDPOINT_HERE'; // <-- Replace with your real API endpoint
+const API_URL = 'CIA_CIruVm9aOP_2025-06-22-2025-06-24.csv'; // Updated to use local CSV
 
 // Variables to store our data and layers
 let climateData = [];
 let allData = [];
-let heatmapLayer = null;
+let heatmapLayers = {};
 let currentTimeIndex = 0;
 let timer = null;
 let stationMarkers = [];
+let activeOverlays = new Set(['temperature']); // Track active overlays
 
 // Add more test markers in Africa
 const testMarkers = [
@@ -70,6 +71,27 @@ const colorScales = {
     0.75, 'yellow',
     1, 'red'
   ],
+  pressure: [
+    0, 'darkblue',
+    0.25, 'blue',
+    0.5, 'lightblue',
+    0.75, 'white',
+    1, 'yellow'
+  ],
+  rain: [
+    0, 'transparent',
+    0.25, 'lightblue',
+    0.5, 'blue',
+    0.75, 'darkblue',
+    1, 'purple'
+  ],
+  humidity: [
+    0, 'brown',
+    0.25, 'yellow',
+    0.5, 'lightblue',
+    0.75, 'blue',
+    1, 'darkblue'
+  ],
   wind_speed: [
     0, 'white',
     0.25, 'lightblue',
@@ -84,6 +106,16 @@ const colorScales = {
     0.75, 'red',
     1, 'maroon'
   ]
+};
+
+// Variable ranges for normalization
+const variableRanges = {
+  temperature: { min: 0, max: 50 },
+  pressure: { min: 900, max: 1100 },
+  rain: { min: 0, max: 100 },
+  humidity: { min: 0, max: 100 },
+  wind_speed: { min: 0, max: 50 },
+  pm25: { min: 0, max: 200 }
 };
 
 // Function to load data from API or CSV
@@ -108,11 +140,13 @@ async function loadData() {
                             lat: lat,
                             lng: lng,
                             temperature: parseFloat(row['temperature (°C)']),
+                            pressure: parseFloat(row['pressure (hPa)']),
+                            rain: parseFloat(row['rain (mm/hr)']),
                             humidity: parseFloat(row['humidity (%)']),
                             wind_speed: row['wind_speed'] ? parseFloat(row['wind_speed']) : 0,
                             precipitation: row['rain (mm/hr)'] ? parseFloat(row['rain (mm/hr)']) : 0
                         }));
-                        updateHeatmap();
+                        updateAllHeatmaps();
                     });
             }
         });
@@ -121,152 +155,223 @@ async function loadData() {
     }
 }
 
-// CSV Upload Handler
-if (document.getElementById('csv-upload')) {
-    document.getElementById('csv-upload').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                // Extract lat/lng from file header (first few lines)
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    const text = event.target.result;
-                    const latMatch = text.match(/latitude:\s*([\-\d.]+)/);
-                    const lngMatch = text.match(/longitude:\s*([\-\d.]+)/);
-                    const lat = latMatch ? parseFloat(latMatch[1]) : null;
-                    const lng = lngMatch ? parseFloat(lngMatch[1]) : null;
-
-                    climateData = results.data.map(row => ({
-                        lat: lat,
-                        lng: lng,
-                        temperature: parseFloat(row['temperature (°C)']),
-                        humidity: parseFloat(row['humidity (%)']),
-                        wind_speed: row['wind_speed'] ? parseFloat(row['wind_speed']) : 0,
-                        precipitation: row['rain (mm/hr)'] ? parseFloat(row['rain (mm/hr)']) : 0
-                    }));
-                    updateHeatmap();
-                };
-                reader.readAsText(file);
+// Function to create heatmap data with 1km radius
+function createHeatmapData(variable, radiusKm = 1) {
+    const data = [];
+    const radiusDegrees = radiusKm / 111; // Approximate conversion from km to degrees
+    
+    // Add data from CSV
+    if (climateData.length > 0) {
+        climateData.forEach(point => {
+            if (point[variable] !== undefined && !isNaN(point[variable])) {
+                // Create a grid of points within the radius
+                for (let i = 0; i < 20; i++) {
+                    for (let j = 0; j < 20; j++) {
+                        const latOffset = (i - 10) * radiusDegrees / 10;
+                        const lngOffset = (j - 10) * radiusDegrees / 10;
+                        const distance = Math.sqrt(latOffset * latOffset + lngOffset * lngOffset);
+                        
+                        if (distance <= radiusDegrees) {
+                            const intensity = 1 - (distance / radiusDegrees);
+                            data.push({
+                                type: 'Feature',
+                                geometry: {
+                                    type: 'Point',
+                                    coordinates: [point.lng + lngOffset, point.lat + latOffset]
+                                },
+                                properties: {
+                                    value: normalizeValue(point[variable], variable) * intensity
+                                }
+                            });
+                        }
+                    }
+                }
             }
         });
-    });
-}
-
-// Function to update the heatmap based on selected parameters
-function updateHeatmap() {
-    if (!climateData.length) return;
-    
-    const dataType = document.getElementById('data-type').value;
-    const radius = parseInt(document.getElementById('radius').value);
-    const intensity = parseInt(document.getElementById('intensity').value);
-    
-    // Remove existing heatmap layer if it exists
-    if (map.getLayer('heatmap-layer')) {
-        map.removeLayer('heatmap-layer');
-        map.removeSource('heatmap-source');
     }
     
-    // Prepare the data for the heatmap
-    const features = climateData.map(point => ({
-        type: 'Feature',
-        geometry: {
-            type: 'Point',
-            coordinates: [point.lng, point.lat]
-        },
-        properties: {
-            // Normalize the value between 0 and 1 for the heatmap
-            value: normalizeValue(point[dataType], dataType)
-        }
-    }));
-    
-    // Add the heatmap source and layer
-    map.addSource('heatmap-source', {
-        type: 'geojson',
-        data: {
-            type: 'FeatureCollection',
-            features: features
-        }
-    });
-    
-    map.addLayer({
-        id: 'heatmap-layer',
-        type: 'heatmap',
-        source: 'heatmap-source',
-        paint: {
-            // Increase intensity as zoom level increases
-            'heatmap-intensity': intensity,
-            // Color scale for the heatmap
-            'heatmap-color': [
-                'interpolate',
-                ['linear'],
-                ['heatmap-density'],
-                ...colorScales[dataType].flat()
-            ],
-            // Radius of each point
-            'heatmap-radius': radius,
-            // Decrease opacity to see underlying map
-            'heatmap-opacity': 0.7,
-            // Transition from heatmap to circle layer by zoom level
-            'heatmap-weight': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                0, 1,
-                9, 3
-            ]
+    // Add data from test markers
+    testMarkers.forEach(marker => {
+        if (marker[variable] !== undefined && !isNaN(marker[variable])) {
+            const [lat, lng] = marker.location.split(',').map(Number);
+            
+            // Create a grid of points within the radius
+            for (let i = 0; i < 20; i++) {
+                for (let j = 0; j < 20; j++) {
+                    const latOffset = (i - 10) * radiusDegrees / 10;
+                    const lngOffset = (j - 10) * radiusDegrees / 10;
+                    const distance = Math.sqrt(latOffset * latOffset + lngOffset * lngOffset);
+                    
+                    if (distance <= radiusDegrees) {
+                        const intensity = 1 - (distance / radiusDegrees);
+                        data.push({
+                            type: 'Feature',
+                            geometry: {
+                                type: 'Point',
+                                coordinates: [lng + lngOffset, lat + latOffset]
+                            },
+                            properties: {
+                                value: normalizeValue(marker[variable], variable) * intensity
+                            }
+                        });
+                    }
+                }
+            }
         }
     });
     
-    // Update the legend
-    updateLegend(dataType);
+    return data;
 }
 
-// Function to normalize values between 0 and 1 for the heatmap
-function normalizeValue(value, dataType) {
-    // Get all values for this data type
-    const values = climateData.map(item => item[dataType]);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+// Function to update all heatmaps based on active overlays
+function updateAllHeatmaps() {
+    const radius = parseFloat(document.getElementById('radius').value);
+    const intensity = parseInt(document.getElementById('intensity').value);
     
-    // Normalize between 0 and 1
-    return (value - min) / (max - min);
+    // Remove all existing heatmap layers
+    Object.keys(heatmapLayers).forEach(variable => {
+        if (map.getLayer(`heatmap-${variable}`)) {
+            map.removeLayer(`heatmap-${variable}`);
+        }
+        if (map.getSource(`heatmap-source-${variable}`)) {
+            map.removeSource(`heatmap-source-${variable}`);
+        }
+    });
+    
+    // Clear heatmap layers object
+    heatmapLayers = {};
+    
+    // Add heatmaps for active overlays
+    activeOverlays.forEach(variable => {
+        const data = createHeatmapData(variable, radius);
+        
+        if (data.length > 0) {
+            // Add the heatmap source
+            map.addSource(`heatmap-source-${variable}`, {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: data
+                }
+            });
+            
+            // Add the heatmap layer
+            map.addLayer({
+                id: `heatmap-${variable}`,
+                type: 'heatmap',
+                source: `heatmap-source-${variable}`,
+                paint: {
+                    'heatmap-intensity': intensity,
+                    'heatmap-color': colorScales[variable],
+                    'heatmap-radius': 30,
+                    'heatmap-opacity': 0.8,
+                    'heatmap-weight': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'value'],
+                        0, 0,
+                        1, 1
+                    ]
+                }
+            });
+            
+            heatmapLayers[variable] = true;
+        }
+    });
+    
+    // Update legend
+    updateLegend();
 }
 
-// Function to update the legend
-function updateLegend(dataType) {
+// Function to normalize values between 0 and 1
+function normalizeValue(value, variable) {
+    const range = variableRanges[variable];
+    if (!range) return 0;
+    
+    const normalized = (value - range.min) / (range.max - range.min);
+    return Math.max(0, Math.min(1, normalized));
+}
+
+// Function to update legend
+function updateLegend() {
     const legendContent = document.getElementById('legend-content');
-    const colors = colorScales[dataType];
+    legendContent.innerHTML = '';
     
-    let html = `<div><strong>${getDataTypeLabel(dataType)}</strong></div>`;
-    
-    // Get min and max values for the current data type
-    const values = climateData.map(item => item[dataType]);
-    const min = Math.min(...values).toFixed(1);
-    const max = Math.max(...values).toFixed(1);
-    
-    // Create gradient for legend
-    html += `<div style="background: linear-gradient(to right, ${colors.map(c => c[1]).join(', ')}; 
-             height: 20px; width: 100%; margin-top: 5px;"></div>`;
-    html += `<div style="display: flex; justify-content: space-between;">
-                <span>${min}</span>
-                <span>${max}</span>
-             </div>`;
-    
-    legendContent.innerHTML = html;
+    activeOverlays.forEach(variable => {
+        const legendItem = document.createElement('div');
+        legendItem.className = 'legend-item';
+        
+        const title = document.createElement('h5');
+        title.textContent = getVariableLabel(variable);
+        legendItem.appendChild(title);
+        
+        const gradientBar = document.createElement('div');
+        gradientBar.className = 'legend-gradient-bar';
+        gradientBar.style.background = `linear-gradient(to right, ${colorScales[variable].join(', ')})`;
+        legendItem.appendChild(gradientBar);
+        
+        const labels = document.createElement('div');
+        labels.className = 'legend-labels';
+        const range = variableRanges[variable];
+        labels.innerHTML = `<span>${range.min}</span><span>${range.max}</span>`;
+        legendItem.appendChild(labels);
+        
+        legendContent.appendChild(legendItem);
+    });
 }
 
-// Helper function to get display label for data type
-function getDataTypeLabel(dataType) {
+// Function to get variable label
+function getVariableLabel(variable) {
     const labels = {
         temperature: 'Temperature (°C)',
+        pressure: 'Pressure (hPa)',
+        rain: 'Rainfall (mm/hr)',
         humidity: 'Humidity (%)',
         wind_speed: 'Wind Speed (km/h)',
-        precipitation: 'Precipitation (mm)'
+        pm25: 'PM2.5 (µg/m³)'
     };
-    return labels[dataType];
+    return labels[variable] || variable;
+}
+
+// Event listeners for overlay toggles
+function setupOverlayListeners() {
+    const overlayCheckboxes = [
+        'toggle-temperature', 'toggle-pressure', 'toggle-rain', 
+        'toggle-humidity', 'toggle-wind_speed', 'toggle-pm25'
+    ];
+    
+    overlayCheckboxes.forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                const variable = id.replace('toggle-', '');
+                if (this.checked) {
+                    activeOverlays.add(variable);
+                } else {
+                    activeOverlays.delete(variable);
+                }
+                updateAllHeatmaps();
+            });
+        }
+    });
+    
+    // Radius slider
+    const radiusSlider = document.getElementById('radius');
+    const radiusValue = document.getElementById('radius-value');
+    if (radiusSlider && radiusValue) {
+        radiusSlider.addEventListener('input', function() {
+            radiusValue.textContent = this.value + ' km';
+            updateAllHeatmaps();
+        });
+    }
+    
+    // Intensity slider
+    const intensitySlider = document.getElementById('intensity');
+    if (intensitySlider) {
+        intensitySlider.addEventListener('input', function() {
+            updateAllHeatmaps();
+        });
+    }
 }
 
 // Function to fetch real-time data from API
@@ -307,7 +412,7 @@ function updateDataForCurrentTime() {
     const times = JSON.parse(timeSlider.dataset.times || '[]');
     const currentTime = times[currentTimeIndex];
     climateData = allData.filter(d => d.date === currentTime);
-    updateHeatmap();
+    updateAllHeatmaps();
     updateStationMarkers();
     document.getElementById('time-label').textContent = currentTime || '';
 }
@@ -334,88 +439,6 @@ function updateStationMarkers() {
         stationMarkers.push(marker);
     });
 }
-
-// Event listeners for controls
-if (document.getElementById('data-type'))
-    document.getElementById('data-type').addEventListener('change', updateHeatmap);
-if (document.getElementById('radius'))
-    document.getElementById('radius').addEventListener('input', updateHeatmap);
-if (document.getElementById('intensity'))
-    document.getElementById('intensity').addEventListener('input', updateHeatmap);
-if (document.getElementById('time-slider'))
-    document.getElementById('time-slider').addEventListener('input', function(e) {
-        currentTimeIndex = parseInt(e.target.value);
-        updateDataForCurrentTime();
-    });
-
-function getTempColor(temp) {
-  if (temp < 30) return "green";
-  if (temp < 35) return "yellow";
-  if (temp < 40) return "orange";
-  return "red";
-}
-
-function addTestMarkers() {
-  // Remove any existing markers first
-  testMarkerObjects.forEach(m => m.remove());
-  testMarkerObjects = [];
-  testMarkers.forEach(marker => {
-    const [lat, lng] = marker.location.split(',').map(Number);
-    const color = getTempColor(marker.temperature);
-    const popupHtml = `
-      <div style="background:${color};padding:8px;border-radius:6px;color:#222;">
-        <strong>${marker.name}</strong><br>
-        Temp: ${marker.temperature} °C<br>
-        Wind: ${marker.wind_speed} km/h<br>
-        PM2.5: ${marker.pm25} µg/m³<br>
-        State: ${marker.state}
-      </div>
-    `;
-    const m = new mapboxgl.Marker()
-      .setLngLat([lng, lat])
-      .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-      .addTo(map);
-    testMarkerObjects.push(m);
-  });
-}
-
-function removeTestMarkers() {
-  testMarkerObjects.forEach(m => m.remove());
-  testMarkerObjects = [];
-}
-
-// Attach toggle to checkbox
-const markerCheckbox = document.getElementById('toggle-markers-checkbox');
-if (markerCheckbox) {
-  markerCheckbox.addEventListener('change', function() {
-    if (markerCheckbox.checked) {
-      addTestMarkers();
-    } else {
-      removeTestMarkers();
-    }
-  });
-}
-
-// --- Time slider animation framework ---
-// If you have time-based data, filter testMarkers by time here.
-// For now, this is a placeholder for future time-based animation.
-const timeSlider = document.getElementById('time-slider');
-if (timeSlider) {
-  timeSlider.addEventListener('input', function(e) {
-    // Example: update heatmap and markers for selected time
-    // const selectedTime = e.target.value;
-    // filter testMarkers by selectedTime and update
-    // For now, just update the label
-    document.getElementById('time-label').textContent = e.target.value;
-    // updateTestHeatmap(...); // if you have time-based data
-    // addTestMarkers(...); // if you have time-based data
-  });
-}
-// --- End time slider framework ---
-
-// --- Placeholder for future overlays (e.g., wind field, etc.) ---
-// You can add overlay logic here and connect to new checkboxes in the controls.
-// --- End overlay placeholder ---
 
 // On map load, fetch data and start timer
 map.on('load', () => {
@@ -626,25 +649,135 @@ function removeTemperatureIsolines() {
 const windCheckbox = document.getElementById('toggle-wind-checkbox');
 if (windCheckbox) {
   windCheckbox.addEventListener('change', function() {
-    if (windCheckbox.checked) {
+    if (this.checked) {
       addWindField();
     } else {
       removeWindField();
     }
   });
 }
+
 const isolinesCheckbox = document.getElementById('toggle-isolines-checkbox');
 if (isolinesCheckbox) {
   isolinesCheckbox.addEventListener('change', function() {
-    if (isolinesCheckbox.checked) {
+    if (this.checked) {
       addTemperatureIsolines();
     } else {
       removeTemperatureIsolines();
     }
   });
 }
-// On map load, also check if overlays should be shown
+
+// Function to get temperature color
+function getTempColor(temp) {
+  if (temp < 30) return "green";
+  if (temp < 35) return "yellow";
+  if (temp < 40) return "orange";
+  return "red";
+}
+
+// Function to add test markers
+function addTestMarkers() {
+  // Remove any existing markers first
+  testMarkerObjects.forEach(m => m.remove());
+  testMarkerObjects = [];
+  testMarkers.forEach(marker => {
+    const [lat, lng] = marker.location.split(',').map(Number);
+    const color = getTempColor(marker.temperature);
+    const popupHtml = `
+      <div style="background:${color};padding:8px;border-radius:6px;color:#222;">
+        <strong>${marker.name}</strong><br>
+        Temp: ${marker.temperature} °C<br>
+        Wind: ${marker.wind_speed} km/h<br>
+        PM2.5: ${marker.pm25} µg/m³<br>
+        State: ${marker.state}
+      </div>
+    `;
+    const m = new mapboxgl.Marker()
+      .setLngLat([lng, lat])
+      .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
+      .addTo(map);
+    testMarkerObjects.push(m);
+  });
+}
+
+// Function to remove test markers
+function removeTestMarkers() {
+  testMarkerObjects.forEach(m => m.remove());
+  testMarkerObjects = [];
+}
+
+// Attach toggle to checkbox
+const markerCheckbox = document.getElementById('toggle-markers-checkbox');
+if (markerCheckbox) {
+  markerCheckbox.addEventListener('change', function() {
+    if (this.checked) {
+      addTestMarkers();
+    } else {
+      removeTestMarkers();
+    }
+  });
+}
+
+// Time slider event listener
+const timeSlider = document.getElementById('time-slider');
+if (timeSlider) {
+  timeSlider.addEventListener('input', function(e) {
+    currentTimeIndex = parseInt(e.target.value);
+    updateDataForCurrentTime();
+  });
+}
+
+// Variable selector event listener
+const heatmapVarSelect = document.getElementById('heatmap-var');
+if (heatmapVarSelect) {
+  heatmapVarSelect.addEventListener('change', function(e) {
+    const selectedVar = e.target.value;
+    // Update active overlays to only include the selected variable
+    activeOverlays.clear();
+    activeOverlays.add(selectedVar);
+    
+    // Update checkboxes
+    const checkboxes = ['toggle-temperature', 'toggle-pressure', 'toggle-rain', 
+                       'toggle-humidity', 'toggle-wind_speed', 'toggle-pm25'];
+    checkboxes.forEach(id => {
+      const checkbox = document.getElementById(id);
+      if (checkbox) {
+        checkbox.checked = id === `toggle-${selectedVar}`;
+      }
+    });
+    
+    updateAllHeatmaps();
+  });
+}
+
+// On map load, initialize everything
 map.on('load', () => {
-  if (windCheckbox && windCheckbox.checked) addWindField();
-  if (isolinesCheckbox && isolinesCheckbox.checked) addTemperatureIsolines();
+    // Load data from CSV
+    loadData();
+    
+    // Setup overlay listeners
+    setupOverlayListeners();
+    
+    // Add test markers
+    addTestMarkers();
+    
+    // Initialize with temperature heatmap
+    updateAllHeatmaps();
+    
+    // Start realtime updates if needed
+    startRealtimeUpdates();
+});
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Setup overlay listeners
+    setupOverlayListeners();
+    
+    // Initialize radius value display
+    const radiusSlider = document.getElementById('radius');
+    const radiusValue = document.getElementById('radius-value');
+    if (radiusSlider && radiusValue) {
+        radiusValue.textContent = radiusSlider.value + ' km';
+    }
 });
