@@ -22,6 +22,8 @@
             box-shadow: 0 4px 24px rgba(0,0,0,0.18);
             backdrop-filter: blur(4px);
             min-width: 260px;
+            max-height: 400px;
+            overflow-y: auto;
         }
         .controls {
             position: absolute;
@@ -32,7 +34,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 24px rgba(0,0,0,0.18);
             z-index: 1;
-            min-width: 260px;
+            min-width: 280px;
             backdrop-filter: blur(4px);
         }
         .controls h2 {
@@ -85,6 +87,41 @@
         .controls .row {
             margin-bottom: 12px;
         }
+        .overlay-section {
+            margin-bottom: 15px;
+        }
+        .overlay-section h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+        }
+        .overlay-checkbox {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            cursor: pointer;
+        }
+        .overlay-checkbox input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .overlay-checkbox label {
+            font-size: 0.95em;
+            margin: 0;
+            cursor: pointer;
+        }
+        .legend-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid #ddd;
+        }
+        .legend-item h5 {
+            margin: 0 0 8px 0;
+            font-size: 1em;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -95,16 +132,57 @@
             <label for="heatmap-var"><strong>Variable:</strong></label>
             <select id="heatmap-var">
                 <option value="temperature">Temperature (°C)</option>
+                <option value="pressure">Pressure (hPa)</option>
+                <option value="rain">Rain (mm/hr)</option>
+                <option value="humidity">Humidity (%)</option>
                 <option value="wind_speed">Wind Speed (km/h)</option>
                 <option value="pm25">PM2.5 (µg/m³)</option>
             </select>
         </div>
-        <div class="row" style="margin-bottom:18px;">
-            <strong>Overlays</strong><br>
-            <label style="font-weight:normal;"><input type="checkbox" id="toggle-markers-checkbox" checked> Weather Stations</label><br>
-            <label style="font-weight:normal;"><input type="checkbox" id="toggle-wind-checkbox"> Wind Field</label><br>
-            <label style="font-weight:normal;"><input type="checkbox" id="toggle-isolines-checkbox"> Temperature Isolines</label>
-            <!-- Future overlays: <label><input type="checkbox"> ...</label> -->
+        <div class="overlay-section">
+            <h3>Weather Stations</h3>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-markers-checkbox" checked>
+                <label for="toggle-markers-checkbox">Show Weather Stations</label>
+            </div>
+        </div>
+        <div class="overlay-section">
+            <h3>Climate Variables</h3>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-temperature" checked>
+                <label for="toggle-temperature">Temperature Heatmap</label>
+            </div>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-pressure">
+                <label for="toggle-pressure">Pressure Heatmap</label>
+            </div>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-rain">
+                <label for="toggle-rain">Rainfall Heatmap</label>
+            </div>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-humidity">
+                <label for="toggle-humidity">Humidity Heatmap</label>
+            </div>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-wind_speed">
+                <label for="toggle-wind_speed">Wind Speed Heatmap</label>
+            </div>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-pm25">
+                <label for="toggle-pm25">PM2.5 Heatmap</label>
+            </div>
+        </div>
+        <div class="overlay-section">
+            <h3>Additional Overlays</h3>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-wind-checkbox">
+                <label for="toggle-wind-checkbox">Wind Field</label>
+            </div>
+            <div class="overlay-checkbox">
+                <input type="checkbox" id="toggle-isolines-checkbox">
+                <label for="toggle-isolines-checkbox">Temperature Isolines</label>
+            </div>
         </div>
         <div class="row" style="margin-bottom:18px;">
             <strong>Time</strong><br>
@@ -112,14 +190,14 @@
             <span id="time-label"></span>
         </div>
         <div class="row">
-            <label for="radius">Heatmap Radius:</label>
-            <input type="range" id="radius" min="5" max="50" value="20">
+            <label for="radius">Heatmap Radius (km):</label>
+            <input type="range" id="radius" min="0.5" max="5" value="1" step="0.1">
+            <span id="radius-value">1.0 km</span>
         </div>
         <div class="row">
             <label for="intensity">Intensity:</label>
             <input type="range" id="intensity" min="1" max="10" value="5">
         </div>
-        <!-- Future overlays can be added here -->
     </div>
     <div class="map-overlay">
         <div id="legend" class="legend">
@@ -154,6 +232,8 @@
                                 lat: lat,
                                 lng: lng,
                                 temperature: parseFloat(row['temperature (°C)']),
+                                pressure: parseFloat(row['pressure (hPa)']),
+                                rain: parseFloat(row['rain (mm/hr)']),
                                 humidity: parseFloat(row['humidity (%)']),
                                 wind_speed: row['wind_speed'] ? parseFloat(row['wind_speed']) : 0,
                                 precipitation: row['rain (mm/hr)'] ? parseFloat(row['rain (mm/hr)']) : 0
